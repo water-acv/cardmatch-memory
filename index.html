@@ -162,7 +162,7 @@
     <div id="limit-modal" class="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center hidden z-50">
         <div class="bg-white p-6 rounded-lg shadow-xl w-80">
             <h3 class="text-xl font-bold mb-4 text-red-600">カードの種類制限</h3>
-            <p class="mb-6 text-gray-700">ゲームのルール上、**同じ種類のカードは最大2枚まで**しか存在しません。選択された種類は既に2枚記憶されているため、選べません。</p>
+            <p class="mb-6 text-gray-700">ゲームのルール上、同じ種類のカードは最大2枚までしか存在しません。選択された種類は既に2枚記憶されているため、選べません。</p>
             <div class="flex justify-end">
                 <button onclick="closeLimitModal()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">閉じる</button>
             </div>
@@ -536,7 +536,7 @@
                 html += `<button onclick="${action}" 
                                 style="background-color: ${cardData.color};"
                                 class="rounded-lg ${textColor} font-semibold shadow-lg py-3 px-6 transition duration-150 ${buttonClass}">
-                            ${type} (${cardData.rarity})${isDisabled ? ' (満了)' : ''}
+                            ${type} (${cardData.rarity})
                         </button>`;
             });
             html += `</div>`;
@@ -844,25 +844,41 @@
                 return RARITY_ORDER[CARD_RARITY_MAP[b].rarity] - RARITY_ORDER[CARD_RARITY_MAP[a].rarity];
             });
 
-            for (const type of sortedKnownTypes) {
-                const indices = knownCards[type];
-                if (indices.length === 2) {
-                    matchablePair = indices;
-                    matchableType = type;
-                    break; 
+            // 優先ルール:
+            // - 1枚目が既知ペアの一部であれば、その相方を最優先で提案する
+            // - それ以外では、レア度が高い既知ペアを提案する
+            if (isFirstFlip) {
+                for (const type of sortedKnownTypes) {
+                    const indices = knownCards[type];
+                    if (indices.length === 2 && indices.includes(currentFlipIndex)) {
+                        matchablePair = indices;
+                        matchableType = type;
+                        break;
+                    }
+                }
+            }
+
+            if (!matchablePair) {
+                for (const type of sortedKnownTypes) {
+                    const indices = knownCards[type];
+                    if (indices.length === 2) {
+                        matchablePair = indices;
+                        matchableType = type;
+                        break;
+                    }
                 }
             }
 
             if (matchablePair) {
                 // P1が適用される場合
                 let targetIndex = -1;
-                
+
                 if (isFirstFlip && matchablePair.includes(currentFlipIndex)) {
                     targetIndex = matchablePair.find(i => i !== currentFlipIndex);
                 } else if (!isFirstFlip) {
                     targetIndex = matchablePair[0];
                 }
-                
+
                 if (targetIndex !== -1 && !currentFlipIndices.includes(targetIndex)) {
                      suggestedIndex = targetIndex;
                      const position = suggestedIndex < 6 ? `上段-${suggestedIndex % 6 + 1}` : `下段-${suggestedIndex % 6 + 1}`;
@@ -888,7 +904,7 @@
                         // 1枚目: 不明 (?) をめくった場合 -> 2枚目は既知の2枚どちらでも等価なので両方提案
                         suggestedIndex = knownSingleIndices.slice();
                         const posList = knownSingleIndices.map(i => i < 6 ? `上段-${i % 6 + 1}` : `下段-${i % 6 + 1}`).join(' と ');
-                        suggestionMessage = `🚀 【最終局面】 残り4枚です。今めくったカードのペアは既知のどちらかにあります。${posList} のどちらをめくっても同じ期待値です。50%のペア成立を狙いつつ、残りカードの種類を確定させましょう。`;
+                        suggestionMessage = `🚀 【最終局面】 残り4枚です。今めくったカードのペアは既知カードのどちらかにあります。${posList} のどちらをめくっても同じ期待値です。50%のペア成立を狙いつつ、残りカードの種類を確定させましょう。`;
                     }
                 } else { 
                     // 0枚めくり中: 既知のシングル 1枚と 不明 1枚をめくるよう提案
@@ -901,7 +917,7 @@
 
                     suggestedIndex = [knownPosA, knownPosB];
 
-                    suggestionMessage = `🚀 【最終局面】 残り4枚です。どちらの既知シングル (${positionA} または ${positionB}) をめくっても同じ期待値です。お好みでどちらかを選んで50%のペア成立を狙いましょう。`;
+                    suggestionMessage = `🚀 【最終局面】 残り4枚です。どちらの既知カード (${positionA} または ${positionB}) をめくっても同じ期待値です。お好みでどちらかを選んで50%のペア成立を狙いましょう。`;
                 }
                 
                 if (suggestedIndex !== -1) {
@@ -969,7 +985,7 @@
                     } else {
                         // 代替が見つからない場合は提案を出さない
                         indicesToConsider = [];
-                        suggestionMessage = `🧐 現在の選択と重複するため、別のカードを選択してください。`;
+                        suggestionMessage = `🧐 残っているカードを選択してください。`;
                     }
                 }
             }
