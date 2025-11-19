@@ -139,7 +139,7 @@
         <!-- 4. コントロールボタン -->
         <div class="flex flex-col items-center justify-center gap-4">
             <button onclick="showConfirmResetModal()" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-lg transition duration-150 shadow-md">
-                ゲームリセット (最初からやり直す)
+                リセット (最初からやり直す)
             </button>
             <!-- 保存状況の表示 -->
             <p id="storage-status" class="text-sm text-gray-500 mt-2"></p>
@@ -384,11 +384,12 @@
                     cardEl.onclick = () => handleCardClick(i); 
                 } else {
                     // 種類不明 (裏面)
+                    const backPosText = i < 6 ? `上段${i % 6 + 1}` : `下段${i % 6 + 1}`;
                     contentHTML = `<div class="card-content text-white">
                                         <span class="text-2xl">?</span>
-                                        <span class="text-sm">位置 ${i + 1}</span>
+                                        <span class="text-sm">${backPosText}</span>
                                    </div>`;
-                    cardEl.onclick = () => handleCardClick(i); 
+                    cardEl.onclick = () => handleCardClick(i);
                 }
 
                 if (isFlipping) {
@@ -408,9 +409,10 @@
                 positionEl.className = 'position-text';
                 positionEl.textContent = positionText;
                 
-                // 裏面カードの場合は位置表示も白色にする
+                // 裏面カードの場合はカード内に位置表示(上段/下段)を表示しているため
+                // 画面左上の位置ラベルは非表示にする
                 if (cardType === null && !isMatched) {
-                    positionEl.classList.add('text-white');
+                    positionEl.style.display = 'none';
                 } else {
                     positionEl.classList.add('text-gray-800');
                 }
