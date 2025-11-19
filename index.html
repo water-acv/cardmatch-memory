@@ -61,7 +61,7 @@
             border-color: #9ca3af;
         }
         .card-suggested {
-            border-color: #f59e0b; /* Suggested: amber */
+            border-color: #06b6d4; /* Suggested: cyan (Palette A) */
             animation: pulse-border 1.5s infinite;
         }
         .card-flipping {
@@ -91,9 +91,9 @@
              line-height: 1;
         }
         @keyframes pulse-border {
-            0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
-            70% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+            0% { box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(6, 182, 212, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(6, 182, 212, 0); }
         }
     </style>
 </head>
@@ -178,7 +178,7 @@
             'ヤクモ': { rarity: 'SSR', color: '#e879f9' }, // fuchsia-400 (明るい紫)
             // 修正点: タカネの色をより明るい紫色に変更
             'タカネ': { rarity: 'SSR', color: '#d8b4fe' }, // violet-300 (明るい紫)
-            'ミノリ': { rarity: 'SR', color: '#f59e0b' }, // yellow-500 (濃い黄色/オレンジ寄り)
+            'ミノリ': { rarity: 'SR', color: '#f59e0b' }, // amber-500 (黄色っぽい色に変更)
             'ノドカ': { rarity: 'SR', color: '#fcd34d' }, // amber-300 (明るい黄色)
             'トモエ': { rarity: 'R', color: '#60a5fa' }, // blue-400
             '親衛隊': { rarity: 'N', color: '#9ca3af' }, // gray-400
@@ -348,10 +348,20 @@
                 if (isMatched) {
                     // ペア成立済み
                     bgColorClass = 'card-matched'; 
+
+                    // 編集ボタンのクラスとアクションを定義（めくり中や入力中は編集不可にする）
+                    const editButtonClass = isAnyFlipOrInput ? 'edit-button-disabled' : 'hover:bg-indigo-600';
+                    const editButtonAction = isAnyFlipOrInput ?
+                        `event.stopPropagation(); console.log('現在、めくり中/種類入力中のため編集できません。');` :
+                        `event.stopPropagation(); handleEditCardType(${i})`;
+
                     contentHTML = `<div class="card-content">
                                         <span class="text-sm font-light text-gray-500">MATCHED</span>
                                         <span class="text-lg">${cardType}</span>
-                                   </div>`;
+                                   </div>
+                                   <button onclick="${editButtonAction}"
+                                           class="edit-button text-xs bg-indigo-500 text-white rounded transition duration-150 shadow-md ${editButtonClass}">編集</button>`;
+                    // マッチ済みは通常クリックでめくれないようにする（編集はボタンから行う）
                     cardEl.onclick = null;
                 } else if (cardType !== null) {
                     // 種類既知 (過去にめくられた情報)
@@ -404,7 +414,16 @@
                 } else {
                     positionEl.classList.add('text-gray-800');
                 }
-                
+
+                // スマホ表示（小さい画面）かつ種類選択モードのときは位置表示が邪魔になるため非表示にする
+                try {
+                    if (isInputtingTypes && window.innerWidth <= 640) {
+                        positionEl.style.display = 'none';
+                    }
+                } catch (e) {
+                    // もし window が存在しない環境でも安全に動作するように無視
+                }
+
                 cardEl.prepend(positionEl);
 
                 cardGridEl.appendChild(cardEl);
@@ -449,8 +468,8 @@
             const isEditing = currentFlipIndices.length === 1 && memoryMap[idx1] === null;
 
             let headerText = isEditing 
-                ? `<span class="text-xl text-indigo-600 font-extrabold">種類を修正</span> (**位置 ${positionText}**) のカード種類を選択してください`
-                : `<span class="text-xl text-red-600 font-extrabold">${indexNumber}枚目</span> (**位置 ${positionText}**) のカード種類を選択してください`;
+                ? `<span class="text-xl text-indigo-600 font-extrabold">種類を修正</span> (位置 ${positionText}) のカード種類を選択してください`
+                : `<span class="text-xl text-red-600 font-extrabold">${indexNumber}枚目</span> (位置 ${positionText}) のカード種類を選択してください`;
 
             const fullyMatchedTypes = new Set();
             memoryMap.forEach((type, index) => {
@@ -462,6 +481,37 @@
                 }
             });
             const availableTypes = CARD_TYPES.filter(type => !fullyMatchedTypes.has(type));
+
+            // 自動割当: 選択できる種類が1つしか残っていない場合は、手動入力を省略して自動で割り当てる
+            if (availableTypes.length === 1) {
+                const autoType = availableTypes[0];
+                // targetIndex は上で決定済み
+                memoryMap[targetIndex] = autoType;
+                saveGame();
+
+                // 1枚だけ再入力モードの場合は割当後に通常フローへ戻す
+                if (idx2 === undefined) {
+                    currentFlipIndices = [];
+                    isInputtingTypes = false;
+                    renderGrid();
+                    updateMemoryList();
+                    updateSuggestion();
+                    return;
+                }
+
+                // 2枚フリップ状態から割当が発生した場合、両方確定していればペアチェックへ
+                if (memoryMap[idx1] !== null && memoryMap[idx2] !== null) {
+                    isInputtingTypes = false;
+                    renderGrid();
+                    processPairCheck();
+                    return;
+                }
+
+                // まだ片方が未確定ならパネルを再描画して次の入力へ
+                renderGrid();
+                renderSelectionPanel();
+                return;
+            }
 
 
             let html = `<p class="text-lg font-bold mb-3 text-gray-800">${headerText}</p>`;
@@ -567,15 +617,24 @@
          * @param {number} index - 編集するカードのインデックス
          */
         function handleEditCardType(index) {
-            if (matchedIndices.includes(index) || currentFlipIndices.length > 0 || isInputtingTypes) {
+            // 編集は、めくり中/種類入力中以外なら可能にする。
+            if (currentFlipIndices.length > 0 || isInputtingTypes) {
                 return;
             }
 
             console.log(`位置 ${index + 1} のカード種類を再入力します。`);
-            
-            currentFlipIndices = [index]; 
-            memoryMap[index] = null; // 種類情報を一旦リセット
-            
+
+            // もしマッチ済みのカードを編集する場合は、該当ペアを未マッチ状態に戻す
+            if (matchedIndices.includes(index)) {
+                const matchedType = memoryMap[index];
+                // ペアを matchedIndices 配列から除外する（同じ種類でマッチしているインデックスを探す）
+                const pairIndices = matchedIndices.filter(i => memoryMap[i] === matchedType);
+                matchedIndices = matchedIndices.filter(i => !pairIndices.includes(i));
+            }
+
+            // 編集対象の種類情報を一旦リセットして、種類入力モードへ移行
+            currentFlipIndices = [index];
+            memoryMap[index] = null;
             isInputtingTypes = true;
             renderGrid();
             renderSelectionPanel();
@@ -734,12 +793,12 @@
          */
         function updateSuggestion() {
             if (isInputtingTypes) {
-                suggestionTextEl.innerHTML = "🚨 **種類入力中**：画面下部のパネルから、めくったカードの種類を順番に、または修正して確定してください！";
+                suggestionTextEl.innerHTML = "🚨 種類入力中：画面下部のパネルから、めくったカードの種類を順番に、または修正して確定してください！";
                 return;
             }
 
             let suggestedIndex = -1;
-            let suggestionMessage = "🤔 **【探索開始】** まずは不明なカードを1枚めくり、記憶情報を増やしましょう。";
+            let suggestionMessage = "🤔 【探索開始】 まずは不明なカードを1枚めくり、記憶情報を増やしましょう。";
 
             // --- 状態の分析 ---
             const knownSinglesMap = {}; // { type: [index] } 1枚だけ記憶されている種類
@@ -807,41 +866,42 @@
                 if (targetIndex !== -1 && !currentFlipIndices.includes(targetIndex)) {
                      suggestedIndex = targetIndex;
                      const position = suggestedIndex < 6 ? `上段-${suggestedIndex % 6 + 1}` : `下段-${suggestedIndex % 6 + 1}`;
-                     suggestionMessage = `🌟 **【最優先】既知のペア**：${matchableType} (${CARD_RARITY_MAP[matchableType].rarity}) のカードを揃えましょう！**位置 ${position}** をめくってください。`;
+                     suggestionMessage = `🌟 【最優先】既知のペア：${matchableType} (${CARD_RARITY_MAP[matchableType].rarity}) のカードを揃えましょう！${position} をめくってください。`;
                      return applySuggestion(suggestedIndex, suggestionMessage);
                 }
             }
             
             // --- P2: 特殊局面: 既知2枚(シングル) + 不明2枚 の高効率戦略 ---
-            if (unknownIndices.length === 2 && knownSingleIndices.length === 2 && matchedIndices.length < NUM_CARDS - 4) {
+            if (unknownIndices.length === 2 && knownSingleIndices.length === 2 && matchedIndices.length <= NUM_CARDS - 4) {
                 // 既知のシングルカード2枚 (A, B) と不明なカード2枚 (?, ??) が残っている。
                 
                 if (isFirstFlip) {
                     const flippedIndex = currentFlipIndices[0];
-                    
+
                     if (knownSingleIndices.includes(flippedIndex)) {
-                        // 1枚目: 既知のシングル (A) -> 2枚目: 不明 (?) を提案 (50%チャンス)
-                        suggestedIndex = unknownIndices[0]; 
-                        const position = suggestedIndex < 6 ? `上段-${suggestedIndex % 6 + 1}` : `下段-${suggestedIndex % 6 + 1}`;
+                        // 1枚目: 既知のシングル (A) をめくった場合 -> 2枚目は不明2枚のどちらでも等価なので両方提案
+                        suggestedIndex = unknownIndices.slice();
                         const flippedType = memoryMap[flippedIndex];
-                        suggestionMessage = `🚀 **【高効率戦略】** 残り4枚 (既知2, 不明2) の特殊局面です。今めくった ${flippedType} (${CARD_RARITY_MAP[flippedType].rarity}) のペアは、裏面の2枚のどちらかに必ずあります！**位置 ${position}** をめくり、50%のペア成立を狙いつつ、残り2枚の種類を確定させましょう。`;
+                        const posList = unknownIndices.map(i => i < 6 ? `上段-${i % 6 + 1}` : `下段-${i % 6 + 1}`).join(' と ');
+                        suggestionMessage = `🚀 【最終局面】 残り4枚です。今めくった ${flippedType} (${CARD_RARITY_MAP[flippedType].rarity}) のペアは裏面のどちらかにあります。${posList} のどちらをめくっても同じ期待値です。50%のペア成立を狙いつつ、残り2枚の種類を確定させましょう。`;
                     } else if (unknownIndices.includes(flippedIndex)) {
-                        // 1枚目: 不明 (?) -> 2枚目: 既知のシングル (A) を提案 (50%チャンス)
-                        suggestedIndex = knownSingleIndices[0];
-                        const position = suggestedIndex < 6 ? `上段-${suggestedIndex % 6 + 1}` : `下段-${suggestedIndex % 6 + 1}`;
-                        suggestionMessage = `🚀 **【高効率戦略】** 残り4枚 (既知2, 不明2) の特殊局面です。今めくったカードのペアは、既知のシングルカードのどちらかのはずです。**位置 ${position}** をめくり、50%のペア成立を狙いつつ、残りカードの種類を確定させましょう。`;
+                        // 1枚目: 不明 (?) をめくった場合 -> 2枚目は既知の2枚どちらでも等価なので両方提案
+                        suggestedIndex = knownSingleIndices.slice();
+                        const posList = knownSingleIndices.map(i => i < 6 ? `上段-${i % 6 + 1}` : `下段-${i % 6 + 1}`).join(' と ');
+                        suggestionMessage = `🚀 【最終局面】 残り4枚です。今めくったカードのペアは既知のどちらかにあります。${posList} のどちらをめくっても同じ期待値です。50%のペア成立を狙いつつ、残りカードの種類を確定させましょう。`;
                     }
                 } else { 
                     // 0枚めくり中: 既知のシングル 1枚と 不明 1枚をめくるよう提案
-                    const knownSinglePosition = knownSingleIndices[0];
+                    const knownPosA = knownSingleIndices[0];
+                    const knownPosB = knownSingleIndices[1];
                     const unknownPosition = unknownIndices[0];
-                    
-                    const position1 = knownSinglePosition < 6 ? `上段-${knownSinglePosition % 6 + 1}` : `下段-${knownSinglePosition % 6 + 1}`;
-                    const position2 = unknownPosition < 6 ? `上段-${unknownPosition % 6 + 1}` : `下段-${unknownPosition % 6 + 1}`;
-                    
-                    suggestedIndex = knownSinglePosition; // 最初にKnownSingleをめくるよう提案
-                    
-                    suggestionMessage = `🚀 **【高効率戦略】** 残り4枚 (既知2, 不明2) の特殊局面です。まずは既知のシングルカード **位置 ${position1}** をめくり、50%のペア成立と残りカードの種類の確定を狙いましょう。`;
+
+                    const positionA = knownPosA < 6 ? `上段-${knownPosA % 6 + 1}` : `下段-${knownPosA % 6 + 1}`;
+                    const positionB = knownPosB < 6 ? `上段-${knownPosB % 6 + 1}` : `下段-${knownPosB % 6 + 1}`;
+
+                    suggestedIndex = [knownPosA, knownPosB];
+
+                    suggestionMessage = `🚀 【最終局面】 残り4枚です。どちらの既知シングル (${positionA} または ${positionB}) をめくっても同じ期待値です。お好みでどちらかを選んで50%のペア成立を狙いましょう。`;
                 }
                 
                 if (suggestedIndex !== -1) {
@@ -857,19 +917,21 @@
                 // 1枚目が既知のシングルカード (A) で、次に不明なカードをめくる
                 const isKnownSingle = flippedType !== null && knownSingleIndices.includes(currentFlipIndex);
 
-                if (isKnownSingle && unknownIndices.length > 0) {
+                // 既知のシングルカードを1枚目に選択した場合の扱い
+                // → 特殊局面（既知2枚＋不明2枚）の時のみ「50%チャンス」として扱う。それ以外は堅実に新規カードをめくる提案とする。
+                if (isKnownSingle && unknownIndices.length === 2 && knownSingleIndices.length === 2 && matchedIndices.length <= NUM_CARDS - 4) {
                     suggestedIndex = unknownIndices[0];
                     const position = suggestedIndex < 6 ? `上段-${suggestedIndex % 6 + 1}` : `下段-${suggestedIndex % 6 + 1}`;
-                    suggestionMessage = `🎯 **【50%チャンス】** 1枚目(${flippedType}, ${CARD_RARITY_MAP[flippedType].rarity})のペアは裏面のどこかにあるはずです！次の不明なカード、**位置 ${position}** をめくり、揃うかどうかを試しましょう。`;
+                    suggestionMessage = `🎯 【50%チャンス】 1枚目(${flippedType}, ${CARD_RARITY_MAP[flippedType].rarity})のペアは裏面のどちらかにあります。特殊局面なので、${position} をめくって50%で揃うことを狙いましょう。`;
                 } 
                 // 1枚目が不明 or 既知のペア(2枚揃っている状態)をめくった場合
                 else if (unknownIndices.length > 0) {
                     suggestedIndex = unknownIndices[0];
                     const position = suggestedIndex < 6 ? `上段-${suggestedIndex % 6 + 1}` : `下段-${suggestedIndex % 6 + 1}`;
-                    suggestionMessage = `💡 **【記憶を増やす】** ペアになるカードはまだ不明です。次の不明なカード、**位置 ${position}** をめくり、記憶を増やしましょう。`;
+                    suggestionMessage = `💡 【記憶を増やす】 ペアになるカードはまだ不明です。次の不明なカード、${position} をめくり、記憶を増やしましょう。`;
                 } else if (allKnownOrMatched) {
                     // 1枚目めくり中で、残りのカードがすべて既知（未成立）またはマッチ済み
-                    suggestionMessage = `🧐 **【残りを探る】** 1枚目のカードのペアはまだ不明です。記憶済みのカードをクリックして、残り1枚のペアを探るか、めくりをキャンセルしましょう。`;
+                    suggestionMessage = `🧐 【残りを探る】 1枚目のカードのペアはまだ不明です。記憶済みのカードをクリックして、残り1枚のペアを探るか、めくりをキャンセルしましょう。`;
                 }
 
             } else if (currentFlipIndices.length === 0) {
@@ -877,16 +939,47 @@
                 if (unknownIndices.length > 0) {
                     suggestedIndex = unknownIndices[0];
                     const position = suggestedIndex < 6 ? `上段-${suggestedIndex % 6 + 1}` : `下段-${suggestedIndex % 6 + 1}`;
-                    suggestionMessage = `🤔 **【探索開始】** まずは不明なカード、**位置 ${position}** をめくって情報を取得しましょう。`;
+                    suggestionMessage = `🤔 【探索開始】 まずは不明なカード、${position} をめくって情報を取得しましょう。`;
                 } else if (matchedIndices.length === NUM_CARDS) {
                     suggestionMessage = "🎉 すべてのペアが揃いました！ゲームクリアです！";
                 } else if (allKnownOrMatched) {
-                    suggestionMessage = "🧐 **【記憶済み】** すべての裏面カードをめくり終えました。次のターンは記憶済みのカードをクリックしてペアを揃えましょう。";
+                    suggestionMessage = "🧐 【記憶済み】 すべての裏面カードをめくり終えました。次のターンは記憶済みのカードをクリックしてペアを揃えましょう。";
                 }
             }
 
-            // エラー箇所を修正: messageをsuggestionMessageに変更
-            applySuggestion(suggestedIndex, suggestionMessage);
+            // 提案が現在めくっているカードと重複していないかを保険
+            let indicesToConsider = [];
+            if (Array.isArray(suggestedIndex)) {
+                indicesToConsider = suggestedIndex.slice();
+            } else if (suggestedIndex !== -1) {
+                indicesToConsider = [suggestedIndex];
+            }
+
+            if (indicesToConsider.length > 0 && indicesToConsider.some(i => currentFlipIndices.includes(i))) {
+                // 現在めくっているカードと重複する候補は除外する
+                indicesToConsider = indicesToConsider.filter(i => !currentFlipIndices.includes(i) && !matchedIndices.includes(i));
+
+                if (indicesToConsider.length === 0) {
+                    // 未確認のカードから現在めくっているカードと重複しない候補を探す
+                    const alt = unknownIndices.find(i => !currentFlipIndices.includes(i) && !matchedIndices.includes(i));
+                    if (alt !== undefined) {
+                        indicesToConsider = [alt];
+                        const position = alt < 6 ? `上段-${alt % 6 + 1}` : `下段-${alt % 6 + 1}`;
+                        suggestionMessage = `💡 【記憶を増やす】 次の不明なカード、${position} をめくり、記憶を増やしましょう。`;
+                    } else {
+                        // 代替が見つからない場合は提案を出さない
+                        indicesToConsider = [];
+                        suggestionMessage = `🧐 現在の選択と重複するため、別のカードを選択してください。`;
+                    }
+                }
+            }
+
+            // 推奨インデックスを単一値または配列として applySuggestion に渡す
+            let finalSuggested = -1;
+            if (indicesToConsider.length === 1) finalSuggested = indicesToConsider[0];
+            else if (indicesToConsider.length > 1) finalSuggested = indicesToConsider;
+
+            applySuggestion(finalSuggested, suggestionMessage);
         }
 
         /**
@@ -896,16 +989,23 @@
          */
         function applySuggestion(suggestedIndex, message) {
             suggestionTextEl.innerHTML = message;
-            
-            // ハイライトの適用
+
+            // 全ての既存ハイライトをクリア
             document.querySelectorAll('.card-slot').forEach(el => {
-                const index = parseInt(el.getAttribute('data-index'));
                 el.classList.remove('card-suggested');
                 el.style.animation = 'none';
                 void el.offsetWidth; // リフローを強制
-                
-                // 提案されたカードであり、現在めくり中ではないカードをハイライト
-                if (index === suggestedIndex && !currentFlipIndices.includes(suggestedIndex)) {
+            });
+
+            if (suggestedIndex === -1 || suggestedIndex === null || suggestedIndex === undefined) return;
+
+            const indices = Array.isArray(suggestedIndex) ? suggestedIndex : [suggestedIndex];
+
+            indices.forEach(idx => {
+                // 現在めくり中のカードや既にマッチ済みのカードはハイライトしない
+                if (currentFlipIndices.includes(idx) || matchedIndices.includes(idx)) return;
+                const el = document.querySelector(`.card-slot[data-index="${idx}"]`);
+                if (el) {
                     el.classList.add('card-suggested');
                     el.style.animation = 'pulse-border 1.5s infinite';
                 }
