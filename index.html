@@ -15,14 +15,14 @@
         .card-slot {
             transition: all 0.3s ease;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
-            height: 120px; /* カードの高さ固定 */
+            height: 110px;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
             border: 4px solid transparent;
             position: relative;
-            padding: 4px; /* モバイル対応のためパディングを確保 */
+            padding: 4px;
         }
         /* カード内容のラッパー。flex-colで縦に配置 */
         .card-content {
@@ -32,29 +32,32 @@
             justify-content: center;
             height: 100%;
             width: 100%;
+            /* 修正点: padding-bottomを増やし、内容を上部に移動させて編集ボタンとの重なりを回避 */
+            padding-bottom: 28px; 
         }
         /* カード内部のテキストサイズ調整 */
         .card-slot .text-lg {
-            font-size: 1.25rem; /* 種類名 */
-            line-height: 1.2;
-            margin-top: 5px; /* 位置表示との隙間 */
+            font-size: 1.05rem;
+            line-height: 1.1;
+            margin-top: 0;
         }
         .card-slot .text-sm {
-            font-size: 0.75rem; /* 位置やMATCHED */
+            font-size: 0.75rem;
         }
 
-        .card-known, .card-unknown, .card-matched {
-            color: #1f2937;
+        .card-known {
+            /* 背景色はJSでインライン設定される */
+            color: #1f2937; /* 濃い文字色を基本とする */
         }
         .card-unknown {
             background-color: #b91c1c; /* 赤いカード裏面をイメージ */
             color: white;
         }
         .card-matched {
-            background-color: #d1d5db; /* Grayed out */
+            background-color: #e5e7eb; /* 薄いグレーに固定 */
             color: #6b7280;
             cursor: default;
-            opacity: 0.6;
+            opacity: 0.7;
             border-color: #9ca3af;
         }
         .card-suggested {
@@ -65,15 +68,14 @@
             border-color: #4f46e5; /* Flipping: Indigo */
             border-width: 4px;
         }
+        /* 編集ボタンの絶対位置とサイズを調整 */
         .edit-button {
             position: absolute;
-            bottom: 4px;
-            right: 4px;
-            text-xs: 0.75rem;
-            padding-left: 0.5rem;
-            padding-right: 0.5rem;
-            padding-top: 0.125rem;
-            padding-bottom: 0.125rem;
+            bottom: 2px;
+            right: 2px;
+            font-size: 0.7rem;
+            padding: 0.1rem 0.4rem; 
+            line-height: 1;
         }
         .edit-button-disabled {
             opacity: 0.4;
@@ -81,12 +83,12 @@
         }
         .position-text {
              position: absolute;
-             top: 4px;
-             left: 4px;
-             font-size: 0.75rem;
+             top: 2px;
+             left: 2px;
+             font-size: 0.7rem;
              font-weight: 300;
              opacity: 0.75;
-             line-height: 1; /* 行の高さを詰める */
+             line-height: 1;
         }
         @keyframes pulse-border {
             0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
@@ -173,12 +175,13 @@
         const NUM_CARDS = 12;
         // カードデータ: レア度と色を定義
         const CARD_RARITY_MAP = {
-            'ヤクモ': { rarity: 'SSR', color: 'bg-purple-400' }, 
-            'タカネ': { rarity: 'SSR', color: 'bg-purple-400' }, 
-            'ミノリ': { rarity: 'SR', color: 'bg-yellow-300' }, 
-            'ノドカ': { rarity: 'SR', color: 'bg-yellow-300' }, 
-            'トモエ': { rarity: 'R', color: 'bg-blue-400' }, 
-            '親衛隊': { rarity: 'N', color: 'bg-gray-400' }, 
+            'ヤクモ': { rarity: 'SSR', color: '#e879f9' }, // fuchsia-400 (明るい紫)
+            // 修正点: タカネの色をより明るい紫色に変更
+            'タカネ': { rarity: 'SSR', color: '#d8b4fe' }, // violet-300 (明るい紫)
+            'ミノリ': { rarity: 'SR', color: '#f59e0b' }, // yellow-500 (濃い黄色/オレンジ寄り)
+            'ノドカ': { rarity: 'SR', color: '#fcd34d' }, // amber-300 (明るい黄色)
+            'トモエ': { rarity: 'R', color: '#60a5fa' }, // blue-400
+            '親衛隊': { rarity: 'N', color: '#9ca3af' }, // gray-400
         };
         const RARITY_ORDER = { 'SSR': 3, 'SR': 2, 'R': 1, 'N': 0 }; 
         const CARD_TYPES = Object.keys(CARD_RARITY_MAP);
@@ -332,6 +335,7 @@
                 const cardEl = document.createElement('div');
                 cardEl.className = 'card-slot rounded-lg font-bold text-center flex-col';
                 cardEl.setAttribute('data-index', i);
+                cardEl.style.backgroundColor = ''; // インラインスタイルをリセット
 
                 const cardType = memoryMap[i];
                 const isMatched = matchedIndices.includes(i);
@@ -343,8 +347,7 @@
 
                 if (isMatched) {
                     // ペア成立済み
-                    const cardData = CARD_RARITY_MAP[cardType];
-                    bgColorClass = `card-matched ${cardData.color.replace('300', '100').replace('400', '100')}`; 
+                    bgColorClass = 'card-matched'; 
                     contentHTML = `<div class="card-content">
                                         <span class="text-sm font-light text-gray-500">MATCHED</span>
                                         <span class="text-lg">${cardType}</span>
@@ -353,13 +356,16 @@
                 } else if (cardType !== null) {
                     // 種類既知 (過去にめくられた情報)
                     const cardData = CARD_RARITY_MAP[cardType];
-                    bgColorClass = `card-known ${cardData.color}`;
+                    cardEl.style.backgroundColor = cardData.color; // インラインでカスタム色を適用
+                    bgColorClass = 'card-known';
                     
+                    // 編集ボタンのクラスとアクションを定義
                     const editButtonClass = isAnyFlipOrInput ? 'edit-button-disabled' : 'hover:bg-indigo-600';
                     const editButtonAction = isAnyFlipOrInput ? 
                         `event.stopPropagation(); console.log('現在、めくり中/種類入力中のため編集できません。');` : 
                         `event.stopPropagation(); handleEditCardType(${i})`;
 
+                    // card-content内に種類名を含め、その下に編集ボタンを配置（CSSで位置調整）
                     contentHTML = `<div class="card-content">
                                         <span class="text-lg">${cardType}</span>
                                    </div>
@@ -467,7 +473,8 @@
 
             sortedTypes.forEach(type => {
                 const cardData = CARD_RARITY_MAP[type];
-                const textColor = cardData.rarity === 'SSR' || cardData.rarity === 'SR' ? 'text-gray-900' : 'text-white';
+                // ボタンのテキスト色を決定: 基本は黒文字（#1f2937）を使用
+                const textColor = 'text-gray-900'; 
                 
                 // 3枚制限のチェック: 既に2枚記憶済みの場合、選択不可
                 const currentCount = typeCounts[type] || 0;
@@ -477,13 +484,13 @@
                 const action = isDisabled ? `handleLimitReached('${type}')` : `confirmCardType('${type}')`;
                 
                 html += `<button onclick="${action}" 
-                                class="rounded-lg ${cardData.color} ${textColor} font-semibold shadow-lg py-3 px-6 transition duration-150 ${buttonClass}">
+                                style="background-color: ${cardData.color};"
+                                class="rounded-lg ${textColor} font-semibold shadow-lg py-3 px-6 transition duration-150 ${buttonClass}">
                             ${type} (${cardData.rarity})${isDisabled ? ' (満了)' : ''}
                         </button>`;
             });
             html += `</div>`;
             
-            // 修正: 修正時のキャンセルテキストを「未選択状態にする」に修正
             let cancelText = isEditing ? '未選択状態にする' : 'めくりをキャンセルして裏面に戻す (情報リセット)';
             html += `<button onclick="cancelInput()" class="mt-4 text-sm text-gray-600 hover:text-red-600 font-medium">${cancelText}</button>`;
             
@@ -491,15 +498,6 @@
             selectionPanelEl.classList.remove('hidden');
         }
 
-        /**
-         * 種類の選択で3枚制限に達した場合の処理
-         * @param {string} type - 選択しようとした種類
-         */
-        function handleLimitReached(type) {
-            console.log(`${type} は既に2枚記憶済みのため、選択できません。`);
-            showLimitModal(); // 警告モーダルを表示
-        }
-        
         /**
          * 記憶済みのカード一覧を更新する
          */
@@ -536,7 +534,8 @@
                 }).join('、');
 
                 const listItem = document.createElement('div');
-                listItem.className = `p-2 rounded-lg flex justify-between items-center ${cardData.color.replace('300', '100').replace('400', '100')} border-l-4 border-l-indigo-600`;
+                
+                listItem.className = `p-2 rounded-lg flex justify-between items-center bg-gray-100 border-l-4 border-l-indigo-600`;
                 listItem.innerHTML = `
                     <span class="font-semibold text-gray-800">${type} (${cardData.rarity})</span>
                     <span class="text-sm text-gray-600">${indices.length}枚: ${positionList}</span>
@@ -553,6 +552,15 @@
         }
 
         // --- ロジックとストラテジー ---
+
+        /**
+         * 種類の選択で3枚制限に達した場合の処理
+         * @param {string} type - 選択しようとした種類
+         */
+        function handleLimitReached(type) {
+            console.log(`${type} は既に2枚記憶済みのため、選択できません。`);
+            showLimitModal(); // 警告モーダルを表示
+        }
 
         /**
          * 既知のカードの種類を再入力するためのモードを開始する
@@ -589,7 +597,7 @@
                 return;
             }
 
-            // 修正: 1枚目選択時、同じカードを再度クリックしたら選択を解除する
+            // 1枚目選択時、同じカードを再度クリックしたら選択を解除する
             if (currentFlipIndices.length === 1 && currentFlipIndices[0] === index) {
                 cancelInput(); // 未選択状態に戻す
                 console.log(`カード (位置 ${index + 1}) の選択を解除しました。`);
@@ -710,8 +718,6 @@
          * めくりと種類入力をキャンセルし、未選択/裏面に戻す (cancelInput)
          */
         function cancelInput() {
-            // 修正モードの場合、種類情報を元に戻す必要はない（未選択状態に戻すだけ）
-            // 2枚フリップの場合、不明なカードの情報はそのまま保持される
             
             isInputtingTypes = false;
             currentFlipIndices = [];
@@ -748,15 +754,22 @@
                 }
             });
 
-            // knownSinglesMapの構築 (1枚しか存在しない種類のみ)
+            // knownSinglesMapの構築 (1枚しか記憶されていない種類のみ)
+            const totalKnownCounts = memoryMap.reduce((acc, type) => {
+                if (type !== null) {
+                    acc[type] = (acc[type] || 0) + 1;
+                }
+                return acc;
+            }, {});
+
             Object.keys(knownCards).forEach(type => {
-                const totalCountInMemory = memoryMap.filter(t => t === type).length;
-                if (totalCountInMemory === 1) { // 全体で1枚だけ存在する種類
+                 // マッチ済みを除いた、現在記憶されている枚数
+                const count = knownCards[type].length; 
+                if (count === 1 && totalKnownCounts[type] === 1) { // 既知で未マッチが1枚、かつ全体でも1枚
                     knownSinglesMap[type] = knownCards[type];
-                } else if (knownCards[type].length === 2) {
-                    // 全体で2枚あるが、まだマッチしていない場合 (P1で処理)
                 }
             });
+
             const knownSingleIndices = Object.values(knownSinglesMap).flat(); // 既知のシングルカードのインデックス [i_A, i_B, ...]
 
 
@@ -800,9 +813,8 @@
             }
             
             // --- P2: 特殊局面: 既知2枚(シングル) + 不明2枚 の高効率戦略 ---
-            if (unknownIndices.length === 2 && knownSingleIndices.length === 2) {
+            if (unknownIndices.length === 2 && knownSingleIndices.length === 2 && matchedIndices.length < NUM_CARDS - 4) {
                 // 既知のシングルカード2枚 (A, B) と不明なカード2枚 (?, ??) が残っている。
-                // Aのペアは(?, ??)のどちらか、Bのペアは残りの1枚。
                 
                 if (isFirstFlip) {
                     const flippedIndex = currentFlipIndices[0];
@@ -817,8 +829,7 @@
                         // 1枚目: 不明 (?) -> 2枚目: 既知のシングル (A) を提案 (50%チャンス)
                         suggestedIndex = knownSingleIndices[0];
                         const position = suggestedIndex < 6 ? `上段-${suggestedIndex % 6 + 1}` : `下段-${suggestedIndex % 6 + 1}`;
-                        const flippedType = memoryMap[suggestedIndex];
-                        suggestionMessage = `🚀 **【高効率戦略】** 残り4枚 (既知2, 不明2) の特殊局面です。今めくったカードのペアは、既知のシングルカード (${flippedType} or 他1種) のどちらかのはずです。**位置 ${position}** をめくり、50%のペア成立を狙いつつ、残りカードの種類を確定させましょう。`;
+                        suggestionMessage = `🚀 **【高効率戦略】** 残り4枚 (既知2, 不明2) の特殊局面です。今めくったカードのペアは、既知のシングルカードのどちらかのはずです。**位置 ${position}** をめくり、50%のペア成立を狙いつつ、残りカードの種類を確定させましょう。`;
                     }
                 } else { 
                     // 0枚めくり中: 既知のシングル 1枚と 不明 1枚をめくるよう提案
@@ -830,7 +841,7 @@
                     
                     suggestedIndex = knownSinglePosition; // 最初にKnownSingleをめくるよう提案
                     
-                    suggestionMessage = `🚀 **【高効率戦略】** 残り4枚 (既知2, 不明2) の特殊局面です。新規2枚をめくると揃う確率は0%です。まずは既知のシングルカード **位置 ${position1}** または不明なカード **位置 ${position2}** をめくり、50%のペア成立と残りカードの種類の確定を狙いましょう！`;
+                    suggestionMessage = `🚀 **【高効率戦略】** 残り4枚 (既知2, 不明2) の特殊局面です。まずは既知のシングルカード **位置 ${position1}** をめくり、50%のペア成立と残りカードの種類の確定を狙いましょう。`;
                 }
                 
                 if (suggestedIndex !== -1) {
@@ -874,6 +885,7 @@
                 }
             }
 
+            // エラー箇所を修正: messageをsuggestionMessageに変更
             applySuggestion(suggestedIndex, suggestionMessage);
         }
 
