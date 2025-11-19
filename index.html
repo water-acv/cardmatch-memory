@@ -146,6 +146,7 @@
         </div>
     </div>
     
+    
     <!-- カスタムモーダル (リセット確認用) -->
     <div id="confirm-modal" class="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center hidden z-50">
         <div class="bg-white p-6 rounded-lg shadow-xl w-80">
@@ -221,6 +222,8 @@
             alertMessageEl.classList.add('hidden');
         }
 
+        
+
 
         // --- データ永続化 (localStorage) ---
 
@@ -234,7 +237,7 @@
                     matchedIndices: matchedIndices,
                 };
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-                updateStorageStatus(true);
+                    updateStorageStatus(true);
             } catch (e) {
                 console.error('Failed to save game state to localStorage:', e);
                 updateStorageStatus(false, '保存失敗');
@@ -557,8 +560,9 @@
             const knownCards = {}; 
             let totalKnown = 0;
 
+            // 記憶済み（既知）カードは、揃ったものも含めて一覧に表示する
             memoryMap.forEach((type, index) => {
-                if (type !== null && !matchedIndices.includes(index)) {
+                if (type !== null) {
                     if (!knownCards[type]) {
                         knownCards[type] = [];
                     }
@@ -582,7 +586,8 @@
                 const cardData = CARD_RARITY_MAP[type];
 
                 const positionList = indices.map(i => {
-                    return i < 6 ? `上段-${i % 6 + 1}` : `下段-${i % 6 + 1}`;
+                    const pos = i < 6 ? `上段-${i % 6 + 1}` : `下段-${i % 6 + 1}`;
+                    return matchedIndices.includes(i) ? `${pos}（揃った）` : pos;
                 }).join('、');
 
                 const listItem = document.createElement('div');
@@ -594,13 +599,14 @@
                 `;
                 memoryListEl.appendChild(listItem);
 
-                if (indices.length === 1) {
+                if (indices.length === 1 && !matchedIndices.includes(indices[0])) {
                     const hintItem = document.createElement('div');
                     hintItem.className = 'text-xs text-red-600 ml-4';
                     hintItem.textContent = '→ あと1枚でペアです！';
                     memoryListEl.appendChild(hintItem);
                 }
             });
+
         }
 
         // --- ロジックとストラテジー ---
@@ -673,7 +679,7 @@
             // 0枚目 -> 1枚目 または 1枚目 -> 2枚目 (異なるカード)
             if (!currentFlipIndices.includes(index)) {
                  currentFlipIndices.push(index);
-                 console.log(`カード (位置 ${index + 1}) をめくりました。現在の枚数: ${currentFlipIndices.length}`);
+                console.log(`カード (位置 ${index + 1}) をめくりました。現在の枚数: ${currentFlipIndices.length}`);
             } else {
                 return; // 既にめくり中のカードを再度クリックした場合
             }
@@ -724,6 +730,8 @@
             // 種類を記憶
             memoryMap[targetIndex] = type;
             saveGame();
+            // 種類を確定したら記憶一覧を即時更新する（2枚入力時や不成立時にも反映させるため）
+            updateMemoryList();
 
             if (idx2 === undefined) {
                 // 1枚の再入力完了
@@ -1007,6 +1015,7 @@
          */
         function applySuggestion(suggestedIndex, message) {
             suggestionTextEl.innerHTML = message;
+            
 
             // 全ての既存ハイライトをクリア
             document.querySelectorAll('.card-slot').forEach(el => {
@@ -1028,6 +1037,7 @@
                     el.style.animation = 'pulse-border 1.5s infinite';
                 }
             });
+            
         }
 
 
